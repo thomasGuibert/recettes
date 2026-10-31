@@ -1,69 +1,74 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+import Link from "next/link";
+import { listRecipes, listTags } from "@/lib/db";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Home({ searchParams }: PageProps<"/">) {
+  const sp = await searchParams;
+  const q = typeof sp.q === "string" ? sp.q : "";
+  const tag = typeof sp.tag === "string" ? sp.tag : "";
+  const [recipes, tags] = await Promise.all([listRecipes({ q, tag }), listTags()]);
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>
-            To get started, edit the{" "}
-            <code className={styles.code}>page.tsx</code> file.
-          </h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
+    <>
+      <form className="search" action="/">
+        <input name="q" defaultValue={q} placeholder="Rechercher une recette, un ingrédient…" />
+        {tag && <input type="hidden" name="tag" value={tag} />}
+        <button className="btn" type="submit">
+          Rechercher
+        </button>
+      </form>
+
+      {tags.length > 0 && (
+        <nav className="tags">
+          <Link href={q ? `/?q=${encodeURIComponent(q)}` : "/"} className={!tag ? "tag active" : "tag"}>
+            Toutes
+          </Link>
+          {tags.map((t) => (
+            <Link
+              key={t}
+              href={`/?${new URLSearchParams({ ...(q && { q }), tag: t })}`}
+              className={t === tag ? "tag active" : "tag"}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+              {t}
+            </Link>
+          ))}
+        </nav>
+      )}
+
+      {recipes.length === 0 ? (
+        <p className="empty">
+          {q || tag ? "Aucune recette ne correspond." : "Aucune recette pour l'instant. "}
+          {!q && !tag && <Link href="/recettes/nouvelle">Ajoute la première !</Link>}
+        </p>
+      ) : (
+        <ul className="grid">
+          {recipes.map((r) => (
+            <li key={r.id}>
+              <Link href={`/recettes/${r.id}`} className="card">
+                {r.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={r.imageUrl} alt="" />
+                )}
+                <div className="card-body">
+                  <h2>{r.title}</h2>
+                  {r.description && <p>{r.description}</p>}
+                  <small>
+                    {[
+                      r.prepMinutes != null || r.cookMinutes != null
+                        ? `⏱ ${(r.prepMinutes ?? 0) + (r.cookMinutes ?? 0)} min`
+                        : null,
+                      r.servings ? `🍽 ${r.servings} pers.` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </small>
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
   );
 }
