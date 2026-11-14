@@ -1,15 +1,16 @@
 // Extraction d'une recette depuis une ou plusieurs photos (pages de livre, fiches…)
-// via l'API Claude (vision + sortie structurée). Utilisé uniquement côté serveur.
-import Anthropic from "@anthropic-ai/sdk";
-import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
+// via l'API Gemini de Google (vision + sortie JSON structurée, offre gratuite).
+// Utilisé uniquement côté serveur.
+import { ApiError, GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 
-export const MODEL = "claude-opus-5-5";
+// Alias qui suit le dernier modèle « Flash » de Google ; modifiable via GEMINI_MODEL.
+export const MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
 
 const IngredientSchema = z.object({
   quantity: z.string().nullable().describe("Quantité telle qu'écrite, en chiffres : \"200\", \"1/2\", \"2-3\". null si absente."),
   unit: z.string().nullable().describe("Unité normalisée (g, kg, ml, cl, l, c. à soupe, c. à café, pincée, gousse, tranche, sachet…). null si aucune."),
-  name: z.string().describe("Nom de l'ingrédient, au singulier sauf usage, sans quantité ni unité."),
+  name: z.string().describe("Nom de l'ingrédient, sans quantité ni unité."),
   note: z.string().nullable().describe("Précision éventuelle : \"tamisée\", \"à température ambiante\", \"facultatif\". null sinon."),
 });
 
@@ -17,7 +18,7 @@ export const ExtractedRecipeSchema = z.object({
   title: z.string(),
   description: z.string().describe("Une ou deux phrases de présentation, vide si rien de pertinent."),
   servings: z.number().nullable(),
-  prepMinutes: z.number().nullable().describe("Temps de préparation en minutes (repos inclus s'il est mentionné à part : non)."),
+  prepMinutes: z.number().nullable().describe("Temps de préparation en minutes."),
   cookMinutes: z.number().nullable().describe("Temps de cuisson en minutes."),
   ingredients: z.array(IngredientSchema),
   steps: z.array(z.string()).describe("Une étape par élément, sans numérotation."),
@@ -25,6 +26,10 @@ export const ExtractedRecipeSchema = z.object({
 });
 
 export type ExtractedRecipe = z.infer<typeof ExtractedRecipeSchema>;
+
+// Schéma JSON envoyé à Gemini (sans la clé "$schema", inutile pour l'API).
+const { $schema: _ignored, ...RESPONSE_SCHEMA } = z.toJSONSchema(ExtractedRecipeSchema);
+void _ignored;
 
 const SYSTEM = `Tu extrais des recettes de cuisine à partir de photos (pages de livres, fiches, captures d'écran) pour les normaliser dans un format unique, en français.
 
@@ -37,53 +42,63 @@ Règles :
 - Si plusieurs photos sont fournies, ce sont des pages successives de la même recette.
 - Si la photo ne contient pas de recette, renvoie un titre vide et des listes vides.`;
 
-export type ImageInput = { mediaType: "image/jpeg" | "image/png" | "image/webp" | "image/gif"; data: string };
+export type ImageInput = { mediaType: "image/jpeg" | "image/png" | "image/webp"; data: string };
 
 export function isExtractionConfigured() {
-  return Boolean(process.env.ANTHROPIC_API_KEY);
+  return Boolean(process.env.GEMINI_API_KEY);
+}
+
+export class ExtractionError extends Error {
+  constructor(
+    message: string,
+    public status = 502,
+  ) {
+    super(message);
+  }
 }
 
 export async function extractRecipe(images: ImageInput[]): Promise<ExtractedRecipe> {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  let text: string | undefined;
   try {
-    return await callModel(images, true);
+    const response = await ai.models.generateContent({
+      model: MODEL,
+      contents: [
+        {
+          role: "user",
+          parts: [
+            ...images.map((img) => ({ inlineData: { mimeType: img.mediaType, data: img.data } })),
+            { text: "Extrais la recette de ces photos." },
+          ],
+        },
+      ],
+      config: {
+        systemInstruction: SYSTEM,
+        responseMimeType: "application/json",
+        responseJsonSchema: RESPONSE_SCHEMA,
+        temperature: 0,
+      },
+    });
+    text = response.text;
   } catch (e) {
-    // Si le compte n'a pas accès au repli serveur (bêta), on réessaie sans.
-    if (e instanceof Anthropic.BadRequestError && /fallback|beta/i.test(e.apiMessage ?? e.message)) {
-      return callModel(images, false);
+    if (e instanceof ApiError) {
+      let detail = e.message;
+      try {
+        detail = JSON.parse(e.message.slice(e.message.indexOf("{"))).error?.message ?? detail;
+      } catch {}
+      detail = detail.slice(0, 300);
+      if (e.status === 429) throw new ExtractionError(`Quota Gemini gratuit atteint, réessaie dans une minute. (${detail})`, 429);
+      if (e.status === 400 && /api key/i.test(detail)) throw new ExtractionError(`Clé GEMINI_API_KEY invalide. (${detail})`, 500);
+      if (e.status === 404) throw new ExtractionError(`Modèle Gemini « ${MODEL} » introuvable. (${detail})`, 500);
+      throw new ExtractionError(`Erreur de l'API Gemini (${e.status}) : ${detail}`);
     }
     throw e;
   }
-}
 
-async function callModel(images: ImageInput[], withFallback: boolean): Promise<ExtractedRecipe> {
-  const client = new Anthropic();
-  const response = await client.beta.messages.parse({
-    model: MODEL,
-    max_tokens: 16000,
-    ...(withFallback ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
-    output_config: { effort: "medium", format: betaZodOutputFormat(ExtractedRecipeSchema) },
-    system: SYSTEM,
-    messages: [
-      {
-        role: "user",
-        content: [
-          ...images.map((img) => ({
-            type: "image" as const,
-            source: { type: "base64" as const, media_type: img.mediaType, data: img.data },
-          })),
-          { type: "text" as const, text: "Extrais la recette de ces photos." },
-        ],
-      },
-    ],
-  });
-
-  if (response.stop_reason === "refusal") {
-    throw new Error("Le modèle a refusé d'analyser cette image.");
-  }
-  if (response.stop_reason === "max_tokens" || !response.parsed_output) {
-    throw new Error("La réponse du modèle est incomplète, réessaie avec une photo plus nette.");
-  }
-  return response.parsed_output;
+  if (!text) throw new ExtractionError("Gemini n'a renvoyé aucune réponse (photo refusée ou illisible).");
+  const parsed = ExtractedRecipeSchema.safeParse(JSON.parse(text));
+  if (!parsed.success) throw new ExtractionError("La réponse de Gemini n'a pas le format attendu, réessaie.");
+  return parsed.data;
 }
 
 /** Met un ingrédient structuré sous la forme d'une ligne unique : "200 g farine (tamisée)". */

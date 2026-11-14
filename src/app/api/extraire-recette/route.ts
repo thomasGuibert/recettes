@@ -1,10 +1,9 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { extractRecipe, formatIngredient, isExtractionConfigured, type ImageInput } from "@/lib/extract";
+import { ExtractionError, extractRecipe, formatIngredient, isExtractionConfigured, type ImageInput } from "@/lib/extract";
 
 // La lecture d'une photo par le modèle prend en général 10 à 40 s.
 export const maxDuration = 120;
 
-const MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_IMAGES = 4;
 
 function error(message: string, status: number) {
@@ -18,7 +17,7 @@ function minutes(n: number | null) {
 export async function POST(request: Request) {
   if (!isExtractionConfigured()) {
     return error(
-      "L'import par photo n'est pas configuré : ajoute la variable ANTHROPIC_API_KEY dans Vercel (voir README).",
+      "L'import par photo n'est pas configuré : ajoute la variable GEMINI_API_KEY dans Vercel (voir README).",
       503,
     );
   }
@@ -52,18 +51,7 @@ export async function POST(request: Request) {
     });
   } catch (e) {
     console.error("Extraction de recette échouée", e);
-    if (e instanceof Anthropic.APIError) {
-      const detail = e.apiMessage ?? e.message;
-      if (e.type === "billing_error" || /credit|billing/i.test(detail)) {
-        return error(
-          `Crédit API insuffisant : ajoute du crédit sur platform.claude.com → Billing. (Détail : ${detail})`,
-          402,
-        );
-      }
-      if (e instanceof Anthropic.AuthenticationError) return error(`Clé ANTHROPIC_API_KEY invalide. (Détail : ${detail})`, 500);
-      if (e instanceof Anthropic.RateLimitError) return error(`Trop de requêtes, réessaie dans une minute. (Détail : ${detail})`, 429);
-      return error(`Erreur de l'API Claude (${e.status ?? "réseau"}) : ${detail}`, 502);
-    }
+    if (e instanceof ExtractionError) return error(e.message, e.status);
     return error(e instanceof Error ? e.message : "Erreur inattendue.", 500);
   }
 }

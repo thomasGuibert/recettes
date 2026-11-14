@@ -20,10 +20,10 @@ async function prepare(file: File, maxSide: number): Promise<Prepared> {
   return { canvas, preview: canvas.toDataURL("image/jpeg", 0.6) };
 }
 
-// Lecture par Claude (si une clé API est configurée sur le serveur).
+// Lecture par Gemini (si une clé API est configurée sur le serveur).
 async function readWithAi(images: Prepared[]): Promise<ParsedRecipe> {
   const payload = images.map(({ canvas }) => {
-    const url = canvas.toDataURL("image/jpeg", 0.85);
+    const url = canvas.toDataURL("image/jpeg", 0.9);
     return { mediaType: "image/jpeg", data: url.slice(url.indexOf(",") + 1) };
   });
   const res = await fetch("/api/extraire-recette", {
@@ -80,8 +80,8 @@ export default function PhotoImport({ mode }: { mode: "ai" | "ocr" }) {
     setStatus("loading");
     setMessage(files.length > 1 ? `Préparation des ${files.length} photos…` : "Préparation de la photo…");
     try {
-      // L'OCR lit mieux une image plus grande ; Claude n'en a pas besoin.
-      const images = await Promise.all(files.map((f) => prepare(f, mode === "ai" ? 1568 : 2400)));
+      // L'OCR lit mieux une image plus grande.
+      const images = await Promise.all(files.map((f) => prepare(f, mode === "ai" ? 2000 : 2400)));
       setPreviews(images.map((i) => i.preview));
 
       let r: ParsedRecipe;
@@ -91,7 +91,7 @@ export default function PhotoImport({ mode }: { mode: "ai" | "ocr" }) {
           setMessage("Analyse de la recette…");
           r = await readWithAi(images);
         } catch (e) {
-          note = ` (Claude indisponible : ${e instanceof Error ? e.message : e} ; lecture sans IA utilisée)`;
+          note = ` (Gemini indisponible : ${e instanceof Error ? e.message : e} ; lecture sans IA utilisée)`;
           r = await readWithOcr(images, setMessage);
         }
       } else {

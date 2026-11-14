@@ -11,7 +11,7 @@ export default function RecipeForm({
   action: (form: FormData) => Promise<void>;
   recipe?: Recipe;
   cancelHref: string;
-  /** Affiche l'import par photo : "ai" (Claude, si une clé API est configurée) ou "ocr" (gratuit, dans le navigateur). */
+  /** Affiche l'import par photo : "ai" (Gemini, si une clé API est configurée) ou "ocr" (gratuit, dans le navigateur). */
   photoImport?: "ai" | "ocr";
 }) {
   return (
