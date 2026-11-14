@@ -14,11 +14,10 @@ Tout l'accès aux données est isolé dans `src/lib/db.ts`. La table `recipes` e
 
 ### Import de recette par photo
 
-Le formulaire « Nouvelle recette » peut lire une photo (page de livre, fiche…) avec l'API Claude et pré-remplir titre, ingrédients, étapes, temps, portions et tags. Il faut une clé API Anthropic :
+Le formulaire « Nouvelle recette » peut lire une photo (page de livre, fiche…) et pré-remplir titre, ingrédients, étapes, temps et portions, à relire avant d'enregistrer. Deux modes :
 
-1. Crée une clé sur [platform.claude.com](https://platform.claude.com/settings/keys) (**API Keys** → **Create Key**) et ajoute un peu de crédit dans **Billing**.
-2. Dans le projet Vercel : **Settings** → **Environment Variables** → nom `ANTHROPIC_API_KEY`, valeur = la clé, environnements Production et Preview → **Save**.
-3. **Deployments** → **Redeploy** sur le dernier déploiement.
+- **Sans IA (par défaut, gratuit)** : reconnaissance de texte [Tesseract.js](https://github.com/naptha/tesseract.js) en français, exécutée dans le navigateur (`src/components/PhotoImport.tsx`), puis découpage par règles (`src/lib/parseRecipeText.ts` : sections Ingrédients / Préparation, quantités et unités, temps, portions ; `src/lib/ocrLayout.ts` remet les pages en deux colonnes dans l'ordre). Limites : mises en page très chargées, photos de travers ou mal éclairées, écriture manuscrite.
+- **Avec Claude (optionnel, payant)** : si la variable `ANTHROPIC_API_KEY` est définie dans Vercel (Settings → Environment Variables, puis Redeploy), la photo est lue par l'API Claude, plus fiable sur les mises en page difficiles (tags inclus). En cas d'erreur de l'API, le mode sans IA prend le relais.
 
 Chaque push sur `main` redéploie la production, et chaque pull request reçoit une URL de preview.
 
