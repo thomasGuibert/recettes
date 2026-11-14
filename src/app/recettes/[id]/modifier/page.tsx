@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
 import RecipeForm from "@/components/RecipeForm";
-import { getRecipe } from "@/lib/db";
+import { getRecipe, isDbConfigured } from "@/lib/db";
+import SetupNotice from "@/components/SetupNotice";
 import { updateRecipeAction } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditRecipe({ params }: PageProps<"/recettes/[id]/modifier">) {
+  if (!isDbConfigured()) return <SetupNotice />;
   const id = Number((await params).id);
   const recipe = Number.isInteger(id) ? await getRecipe(id) : null;
   if (!recipe) notFound();

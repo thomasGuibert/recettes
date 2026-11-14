@@ -19,8 +19,21 @@ export type Recipe = {
 
 export type RecipeInput = Omit<Recipe, "id" | "createdAt" | "updatedAt">;
 
+// Neon via Vercel injecte DATABASE_URL (ou POSTGRES_URL, ou <PREFIXE>_DATABASE_URL si un préfixe a été choisi).
+function databaseUrl() {
+  const env = process.env;
+  if (env.DATABASE_URL) return env.DATABASE_URL;
+  if (env.POSTGRES_URL) return env.POSTGRES_URL;
+  const key = Object.keys(env).find((k) => k.endsWith("_DATABASE_URL") || k.endsWith("_POSTGRES_URL"));
+  return key ? env[key] : undefined;
+}
+
+export function isDbConfigured() {
+  return Boolean(databaseUrl());
+}
+
 function sql() {
-  const url = process.env.DATABASE_URL;
+  const url = databaseUrl();
   if (!url) {
     throw new Error(
       "DATABASE_URL n'est pas défini. Ajoute une base Neon dans l'onglet Storage du projet Vercel (voir README).",

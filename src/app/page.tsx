@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { listRecipes, listTags } from "@/lib/db";
+import { isDbConfigured, listRecipes, listTags } from "@/lib/db";
+import SetupNotice from "@/components/SetupNotice";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home({ searchParams }: PageProps<"/">) {
+  if (!isDbConfigured()) return <SetupNotice />;
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q : "";
   const tag = typeof sp.tag === "string" ? sp.tag : "";
