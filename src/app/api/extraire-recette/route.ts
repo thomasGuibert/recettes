@@ -52,9 +52,18 @@ export async function POST(request: Request) {
     });
   } catch (e) {
     console.error("Extraction de recette échouée", e);
-    if (e instanceof Anthropic.AuthenticationError) return error("Clé ANTHROPIC_API_KEY invalide.", 500);
-    if (e instanceof Anthropic.RateLimitError) return error("Trop de requêtes, réessaie dans une minute.", 429);
-    if (e instanceof Anthropic.APIError) return error(`Erreur de l'API Claude (${e.status ?? "réseau"}).`, 502);
+    if (e instanceof Anthropic.APIError) {
+      const detail = e.apiMessage ?? e.message;
+      if (e.type === "billing_error" || /credit|billing/i.test(detail)) {
+        return error(
+          `Crédit API insuffisant : ajoute du crédit sur platform.claude.com → Billing. (Détail : ${detail})`,
+          402,
+        );
+      }
+      if (e instanceof Anthropic.AuthenticationError) return error(`Clé ANTHROPIC_API_KEY invalide. (Détail : ${detail})`, 500);
+      if (e instanceof Anthropic.RateLimitError) return error(`Trop de requêtes, réessaie dans une minute. (Détail : ${detail})`, 429);
+      return error(`Erreur de l'API Claude (${e.status ?? "réseau"}) : ${detail}`, 502);
+    }
     return error(e instanceof Error ? e.message : "Erreur inattendue.", 500);
   }
 }
