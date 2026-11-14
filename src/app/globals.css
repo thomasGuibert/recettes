@@ -70,3 +70,20 @@ input, textarea {
   border: 1px solid var(--border); border-radius: 12px;
 }
 .notice code { background: #f3e9df; padding: 0 .3rem; border-radius: 4px; }
+.muted { color: var(--muted); }
+.photo-import {
+  padding: 1rem 1.25rem; background: var(--card); border: 1px dashed var(--accent); border-radius: 12px;
+}
+.photo-import p { margin: .3rem 0 0; font-size: .95rem; }
+.photo-import .actions { flex-wrap: wrap; margin-top: .75rem; }
+.form .photo-import label.btn { display: inline-flex; flex-direction: row; align-items: center; gap: .4rem; }
+.btn.disabled { opacity: .5; pointer-events: none; }
+.photo-previews { display: flex; gap: .5rem; margin-top: .75rem; flex-wrap: wrap; }
+.photo-previews img { height: 90px; border-radius: 8px; border: 1px solid var(--border); }
+.photo-status { display: flex; align-items: center; gap: .5rem; }
+.photo-status.error { color: #b3261e; }
+.spinner {
+  width: 1rem; height: 1rem; border: 2px solid var(--border); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
