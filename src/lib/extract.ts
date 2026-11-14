@@ -44,12 +44,23 @@ export function isExtractionConfigured() {
 }
 
 export async function extractRecipe(images: ImageInput[]): Promise<ExtractedRecipe> {
+  try {
+    return await callModel(images, true);
+  } catch (e) {
+    // Si le compte n'a pas accès au repli serveur (bêta), on réessaie sans.
+    if (e instanceof Anthropic.BadRequestError && /fallback|beta/i.test(e.apiMessage ?? e.message)) {
+      return callModel(images, false);
+    }
+    throw e;
+  }
+}
+
+async function callModel(images: ImageInput[], withFallback: boolean): Promise<ExtractedRecipe> {
   const client = new Anthropic();
   const response = await client.beta.messages.parse({
     model: MODEL,
     max_tokens: 16000,
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
+    ...(withFallback ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
     output_config: { effort: "medium", format: betaZodOutputFormat(ExtractedRecipeSchema) },
     system: SYSTEM,
     messages: [
