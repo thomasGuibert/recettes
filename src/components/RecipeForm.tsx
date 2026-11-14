@@ -6,16 +6,17 @@ export default function RecipeForm({
   action,
   recipe,
   cancelHref,
-  photoImport = false,
+  photoImport,
 }: {
   action: (form: FormData) => Promise<void>;
   recipe?: Recipe;
   cancelHref: string;
-  photoImport?: boolean;
+  /** Affiche l'import par photo : "ai" (Claude, si une clé API est configurée) ou "ocr" (gratuit, dans le navigateur). */
+  photoImport?: "ai" | "ocr";
 }) {
   return (
     <form action={action} className="form">
-      {photoImport && <PhotoImport />}
+      {photoImport && <PhotoImport mode={photoImport} />}
       <label>
         Titre *
         <input name="title" required defaultValue={recipe?.title} placeholder="Tarte aux pommes" />
