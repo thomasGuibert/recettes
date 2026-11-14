@@ -1,17 +1,21 @@
 import Link from "next/link";
 import type { Recipe } from "@/lib/db";
+import PhotoImport from "@/components/PhotoImport";
 
 export default function RecipeForm({
   action,
   recipe,
   cancelHref,
+  photoImport = false,
 }: {
   action: (form: FormData) => Promise<void>;
   recipe?: Recipe;
   cancelHref: string;
+  photoImport?: boolean;
 }) {
   return (
     <form action={action} className="form">
+      {photoImport && <PhotoImport />}
       <label>
         Titre *
         <input name="title" required defaultValue={recipe?.title} placeholder="Tarte aux pommes" />

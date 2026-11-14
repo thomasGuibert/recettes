@@ -12,6 +12,14 @@ Tout l'accès aux données est isolé dans `src/lib/db.ts`. La table `recipes` e
 2. Dans le projet Vercel, onglet **Storage** → **Create Database** → **Neon** (offre gratuite) → connecte-la au projet pour tous les environnements. Vercel ajoute automatiquement la variable `DATABASE_URL`.
 3. Onglet **Deployments** → sur le dernier déploiement, **Redeploy** pour prendre en compte la variable.
 
+### Import de recette par photo
+
+Le formulaire « Nouvelle recette » peut lire une photo (page de livre, fiche…) avec l'API Claude et pré-remplir titre, ingrédients, étapes, temps, portions et tags. Il faut une clé API Anthropic :
+
+1. Crée une clé sur [platform.claude.com](https://platform.claude.com/settings/keys) (**API Keys** → **Create Key**) et ajoute un peu de crédit dans **Billing**.
+2. Dans le projet Vercel : **Settings** → **Environment Variables** → nom `ANTHROPIC_API_KEY`, valeur = la clé, environnements Production et Preview → **Save**.
+3. **Deployments** → **Redeploy** sur le dernier déploiement.
+
 Chaque push sur `main` redéploie la production, et chaque pull request reçoit une URL de preview.
 
 ## Développement local
