@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getRecipe } from "@/lib/db";
+import { getRecipe, isDbConfigured } from "@/lib/db";
+import SetupNotice from "@/components/SetupNotice";
 import { deleteRecipeAction } from "@/app/actions";
 import DeleteButton from "@/components/DeleteButton";
 
 export const dynamic = "force-dynamic";
 
 export default async function RecipePage({ params }: PageProps<"/recettes/[id]">) {
+  if (!isDbConfigured()) return <SetupNotice />;
   const id = Number((await params).id);
   const recipe = Number.isInteger(id) ? await getRecipe(id) : null;
   if (!recipe) notFound();

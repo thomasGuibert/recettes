@@ -65,3 +65,8 @@ input, textarea {
 @media (max-width: 640px) {
   .columns, .row { grid-template-columns: 1fr; }
 }
+.notice {
+  max-width: 640px; margin: 2rem auto; padding: 1.5rem; background: var(--card);
+  border: 1px solid var(--border); border-radius: 12px;
+}
+.notice code { background: #f3e9df; padding: 0 .3rem; border-radius: 4px; }
